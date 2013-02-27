@@ -1178,6 +1178,7 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
 	u32 reassert_epoch;
 	u64 reassert_version;
 	u32 osdmap_epoch;
+	int already_completed;
 	int i;
 
 	tid = le64_to_cpu(msg->hdr.tid);
@@ -1286,7 +1287,11 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
 	    ((flags & CEPH_OSD_FLAG_WRITE) == 0))
 		__unregister_request(osdc, req);
 
+	already_completed = req->r_completed;
+	req->r_completed = 1;
 	mutex_unlock(&osdc->request_mutex);
+	if (already_completed)
+		goto done;
 
 	if (req->r_callback)
 		req->r_callback(req, msg);
