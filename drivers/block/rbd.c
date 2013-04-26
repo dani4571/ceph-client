@@ -4476,12 +4476,7 @@ static int rbd_dev_image_id(struct rbd_device *rbd_dev)
 	size_t size;
 	char *object_name;
 	void *response;
-	void *p;
-
-	/* If we already have it we don't need to look it up */
-
-	if (rbd_dev->spec->image_id)
-		return 0;
+	char *image_id;
 
 	/*
 	 * When probing a parent image, the image id is already
@@ -4515,20 +4510,22 @@ static int rbd_dev_image_id(struct rbd_device *rbd_dev)
 				"rbd", "get_id", NULL, 0,
 				response, RBD_IMAGE_ID_LEN_MAX, NULL);
 	dout("%s: rbd_obj_method_sync returned %d\n", __func__, ret);
-	if (ret < 0)
-		goto out;
+	if (ret == -ENOENT) {
+		image_id = kstrdup("", GFP_KERNEL);
+		ret = image_id ? 0 : -ENOMEM;
+	} else if (ret > sizeof (__le32)) {
+		void *p = response;
 
-	p = response;
-	rbd_dev->spec->image_id = ceph_extract_encoded_string(&p,
-						p + ret,
+		image_id = ceph_extract_encoded_string(&p, p + ret,
 						NULL, GFP_NOIO);
-	ret = 0;
-
-	if (IS_ERR(rbd_dev->spec->image_id)) {
-		ret = PTR_ERR(rbd_dev->spec->image_id);
-		rbd_dev->spec->image_id = NULL;
+		ret = IS_ERR(image_id) ? PTR_ERR(image_id) : 0;
 	} else {
-		dout("image_id is %s\n", rbd_dev->spec->image_id);
+		ret = -EINVAL;
+	}
+
+	if (!ret) {
+		rbd_dev->spec->image_id = image_id;
+		dout("image_id is %s\n", image_id);
 	}
 out:
 	kfree(response);
@@ -4794,9 +4791,13 @@ static int rbd_dev_probe(struct rbd_device *rbd_dev)
 	 */
 	ret = rbd_dev_image_id(rbd_dev);
 	if (ret)
-		ret = rbd_dev_v1_probe(rbd_dev);
-	else
+		return ret;
+
+	rbd_assert(rbd_dev->spec->image_id);
+	if (*rbd_dev->spec->image_id)
 		ret = rbd_dev_v2_probe(rbd_dev);
+	else
+		ret = rbd_dev_v1_probe(rbd_dev);
 	if (ret) {
 		dout("probe failed, returning %d\n", ret);
 
