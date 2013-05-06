@@ -2121,6 +2121,7 @@ int ceph_osdc_start_request(struct ceph_osd_client *osdc,
 	down_read(&osdc->map_sem);
 	mutex_lock(&osdc->request_mutex);
 	__register_request(osdc, req);
+if (req->r_sent) printk(" >>>>>>>>>> re-sending osd request %p\n", req);
 	req->r_sent = 0;
 	req->r_got_reply = 0;
 	req->r_completed = 0;

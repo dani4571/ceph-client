@@ -2357,9 +2357,11 @@ rbd_img_obj_parent_read_full_callback(struct rbd_img_request *img_request)
 
 		ceph_release_page_vector(pages, page_count);
 		osdc = &rbd_dev->rbd_client->client->osdc;
+rbd_warn(rbd_dev, "############## READ FULL!\n");
 		img_result = rbd_obj_request_submit(osdc, orig_request);
 		if (!img_result)
 			return;
+		rbd_warn(rbd_dev, "resubmit result is %d\n", img_result);
 	}
 
 	if (img_result)
@@ -2550,9 +2552,11 @@ static void rbd_img_obj_exists_callback(struct rbd_obj_request *obj_request)
 		struct ceph_osd_client *osdc;
 
 		osdc = &rbd_dev->rbd_client->client->osdc;
+rbd_warn(rbd_dev, "############## EXISTS!\n");
 		result = rbd_obj_request_submit(osdc, orig_request);
 		if (!result)
 			return;
+		rbd_warn(rbd_dev, "resubmit result is %d\n", result);
 	}
 
 	/*
@@ -2734,9 +2738,11 @@ static void rbd_img_parent_read_callback(struct rbd_img_request *img_request)
 		struct ceph_osd_client *osdc;
 
 		osdc = &rbd_dev->rbd_client->client->osdc;
+rbd_warn(rbd_dev, "############## READ!\n");
 		img_result = rbd_obj_request_submit(osdc, obj_request);
 		if (!img_result)
 			return;
+		rbd_warn(rbd_dev, "resubmit result is %d\n", img_result);
 	}
 
 	obj_request->result = img_result;
