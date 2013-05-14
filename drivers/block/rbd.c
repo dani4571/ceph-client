@@ -4699,8 +4699,10 @@ out:
 	return ret;
 }
 
-/* Undo whatever state changes are made by v1 or v2 image probe */
-
+/*
+ * Undo whatever state changes are made by v1 or v2 header info
+ * call.
+ */
 static void rbd_dev_unprobe(struct rbd_device *rbd_dev)
 {
 	struct rbd_image_header	*header;
@@ -4904,9 +4906,10 @@ static int rbd_dev_image_probe(struct rbd_device *rbd_dev, bool mapping)
 	int tmp;
 
 	/*
-	 * Get the id from the image id object.  If it's not a
-	 * format 2 image, we'll get ENOENT back, and we'll assume
-	 * it's a format 1 image.
+	 * Get the id from the image id object.  Unless there's an
+	 * error, rbd_dev->spec->image_id will be filled in with
+	 * a dynamically-allocated string, and rbd_dev->image_format
+	 * will be set to either 1 or 2.
 	 */
 	ret = rbd_dev_image_id(rbd_dev);
 	if (ret)
@@ -4994,7 +4997,7 @@ static ssize_t rbd_add(struct bus_type *bus,
 		rc = PTR_ERR(rbdc);
 		goto err_out_args;
 	}
-	ceph_opts = NULL;	/* rbd_dev client now owns this */
+	ceph_opts = NULL;	/* rbd_get_client() consumes this */
 
 	/* pick the pool */
 	osdc = &rbdc->client->osdc;
@@ -5033,14 +5036,14 @@ static ssize_t rbd_add(struct bus_type *bus,
 		return count;
 
 	rbd_dev_image_release(rbd_dev);
+
+	return rc;
+
 err_out_rbd_dev:
 	rbd_dev_destroy(rbd_dev);
 err_out_client:
 	rbd_put_client(rbdc);
 err_out_args:
-	if (ceph_opts)
-		ceph_destroy_options(ceph_opts);
-	kfree(rbd_opts);
 	rbd_spec_put(spec);
 err_out_module:
 	module_put(THIS_MODULE);
